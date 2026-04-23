@@ -9,7 +9,10 @@ public sealed record AuthenticatedUserResponse(
     string DisplayName,
     string Email,
     Role Role,
-    IReadOnlyCollection<Permission> Permissions);
+    IReadOnlyCollection<Permission> Permissions,
+    string AccessToken,
+    string TokenType,
+    DateTimeOffset ExpiresAt);
 
 public sealed record UserProfileResponse(
     Guid UserId,

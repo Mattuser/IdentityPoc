@@ -1,6 +1,7 @@
 using IdentityPoc.Api.Domain.Authorization;
 using IdentityPoc.Api.Domain.Groups;
 using IdentityPoc.Api.Domain.Users;
+using IdentityPoc.Api.Infrastructure.Security;
 
 namespace IdentityPoc.Api.Infrastructure;
 
@@ -8,9 +9,12 @@ public sealed class IdentityStore
 {
     private readonly Dictionary<Guid, UserAccount> _users = [];
     private readonly Dictionary<Guid, AccessGroup> _groups = [];
+    private readonly PasswordHasher _passwordHasher;
 
-    public IdentityStore()
+    public IdentityStore(PasswordHasher passwordHasher)
     {
+        _passwordHasher = passwordHasher;
+
         var moderator = AddUser("Support Moderator", "mod@company.local", "mod123", Role.Mod);
         var user = AddUser("Product User", "user@company.local", "user123", Role.User);
 
@@ -31,7 +35,7 @@ public sealed class IdentityStore
 
     public UserAccount AddUser(string displayName, string email, string password, Role role)
     {
-        var user = new UserAccount(Guid.NewGuid(), displayName, email, password, role);
+        var user = new UserAccount(Guid.NewGuid(), displayName, email, _passwordHasher.Hash(password), role);
         _users.Add(user.Id, user);
 
         return user;

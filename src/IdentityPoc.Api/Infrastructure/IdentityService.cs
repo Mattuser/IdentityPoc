@@ -2,33 +2,44 @@ using IdentityPoc.Api.Contracts;
 using IdentityPoc.Api.Domain.Authorization;
 using IdentityPoc.Api.Domain.Groups;
 using IdentityPoc.Api.Domain.Users;
+using IdentityPoc.Api.Infrastructure.Security;
 
 namespace IdentityPoc.Api.Infrastructure;
 
 public sealed class IdentityService
 {
     private readonly IdentityStore _store;
+    private readonly PasswordHasher _passwordHasher;
+    private readonly JwtTokenService _tokenService;
 
-    public IdentityService(IdentityStore store)
+    public IdentityService(IdentityStore store, PasswordHasher passwordHasher, JwtTokenService tokenService)
     {
         _store = store;
+        _passwordHasher = passwordHasher;
+        _tokenService = tokenService;
     }
 
     public AuthenticatedUserResponse? Authenticate(LoginRequest request)
     {
         var user = _store.FindUserByEmail(request.Email);
 
-        if (user is null || user.Password != request.Password)
+        if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             return null;
         }
+
+        var permissions = GetEffectivePermissions(user).Order().ToArray();
+        var token = _tokenService.Issue(user, permissions);
 
         return new AuthenticatedUserResponse(
             user.Id,
             user.DisplayName,
             user.Email,
             user.Role,
-            GetEffectivePermissions(user).Order().ToArray());
+            permissions,
+            token.AccessToken,
+            "Bearer",
+            token.ExpiresAt);
     }
 
     public UserProfileResponse? GetProfile(Guid userId)

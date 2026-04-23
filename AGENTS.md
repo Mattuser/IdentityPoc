@@ -12,7 +12,7 @@ Other company systems should use this API to:
 - Check whether authenticated users are authorized for an action.
 - Let administrators manage users, groups, and permissions.
 
-The project is intentionally simple right now. It uses an in-memory store and plain passwords because it is a proof of concept. Do not treat those choices as production-ready security decisions.
+The project is intentionally simple right now. It uses an in-memory store because it is a proof of concept. Passwords are hashed with PBKDF2 and authentication issues HMAC-SHA256 JWT access tokens, but operational production concerns such as secret rotation and durable storage are still out of scope.
 
 ## Current Architecture
 
@@ -112,12 +112,17 @@ Current modules:
 
 - `IdentityStore`
 - `IdentityService`
+- `Security`
+  - `PasswordHasher`
+  - `JwtTokenService`
+  - `JwtTokenOptions`
 
 Rules:
 
 - Services are tested as integration tests with real collaborators.
 - Do not use mocks for service tests.
 - Keep persistence details behind infrastructure classes.
+- Keep cryptography and token implementation details in `Infrastructure/Security`.
 - Future database implementations should preserve the behavior covered by integration tests.
 
 ### Endpoints
@@ -143,7 +148,7 @@ Rules:
 - Do not duplicate domain rules in endpoint modules.
 - Do not access domain collections directly from endpoints.
 - Use services for application behavior.
-- Admin endpoints currently require `X-Actor-User-Id` with an admin user id.
+- Admin endpoints require `Authorization: Bearer <accessToken>`.
 
 ## Domain Rules
 
@@ -206,7 +211,7 @@ A user has:
 - Id
 - Display name
 - Email
-- Password
+- Password hash
 - Role
 - Direct permissions
 - Group memberships
@@ -215,8 +220,40 @@ Rules:
 
 - `UserAccount` owns direct permission assignment.
 - `UserAccount` owns group membership assignment from the user side.
-- The current password field is plain text only for the proof of concept.
-- Do not add production authentication assumptions without explicitly changing the design.
+- `UserAccount` stores `PasswordHash`, never a plain text password.
+- `IdentityStore` hashes passwords when users are created.
+- `IdentityService` verifies passwords through `PasswordHasher`.
+
+### Authentication
+
+Login is handled by `POST /api/auth/login`.
+
+Rules:
+
+- Requests provide email and plain text password.
+- Plain text passwords are only accepted at the API boundary for credential verification.
+- Stored passwords must be PBKDF2 hashes produced by `PasswordHasher`.
+- Successful login returns an access token, token type, expiration time, user identity, role, and effective permissions.
+- The current token type is `Bearer`.
+- The access token is a JWT signed with HMAC-SHA256.
+- JWT settings live under the `Jwt` configuration section.
+
+Current JWT claims:
+
+- `iss`
+- `aud`
+- `sub`
+- `email`
+- `role`
+- `permissions`
+- `exp`
+- `iat`
+
+Rules for JWT changes:
+
+- If token claims change, update `JwtTokenService`.
+- If token lifetime, issuer, audience, or signing key rules change, update `JwtTokenOptions` and configuration.
+- If login response shape changes, update `AuthContracts`, integration tests, README, and this file.
 
 ### Groups
 
@@ -252,16 +289,16 @@ Current admin authorization rule:
 
 Current HTTP mechanism:
 
-- Admin endpoints read `X-Actor-User-Id`.
-- Missing or invalid header returns `401`.
-- Non-admin actor returns `403`.
+- Admin endpoints read `Authorization: Bearer <accessToken>`.
+- Missing, malformed, invalid, or expired token returns `401`.
+- Valid token for a non-admin actor returns `403`.
 
 ## API Surface
 
 Current endpoints:
 
 - `GET /health`
-- `POST /api/auth/login`
+- `POST /api/auth/login` returns a Bearer JWT access token
 - `GET /api/auth/users/{userId}/profile`
 - `POST /api/authorization/check`
 - `GET /api/admin/users`
@@ -338,6 +375,8 @@ Rules:
 - Do not use mocks.
 - Use real `IdentityStore`.
 - Use real `IdentityService`.
+- Use real `PasswordHasher`.
+- Use real `JwtTokenService`.
 - Prefer testing externally visible service behavior instead of private implementation details.
 
 ### Endpoint Tests
@@ -369,12 +408,11 @@ When modifying authorization:
 
 These are known proof-of-concept limitations:
 
-- Passwords are stored in plain text.
-- There is no JWT or token issuing yet.
 - There is no database.
 - There is no refresh token flow.
 - There is no permission deny or revoke behavior.
 - There is no endpoint-level test suite yet.
-- Admin HTTP authorization uses `X-Actor-User-Id`, not a production authentication scheme.
+- JWT signing uses a development signing key from configuration.
+- There is no signing key rotation.
 
 Do not silently treat these limitations as solved. If changing one, update tests and documentation.

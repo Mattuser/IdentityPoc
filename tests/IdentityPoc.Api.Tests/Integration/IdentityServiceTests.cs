@@ -1,6 +1,8 @@
 using IdentityPoc.Api.Contracts;
 using IdentityPoc.Api.Domain.Authorization;
 using IdentityPoc.Api.Infrastructure;
+using IdentityPoc.Api.Infrastructure.Security;
+using Microsoft.Extensions.Options;
 
 namespace IdentityPoc.Api.Tests.Integration;
 
@@ -15,8 +17,26 @@ public sealed class IdentityServiceTests
 
         Assert.NotNull(authenticated);
         Assert.Equal(Role.Admin, authenticated.Role);
+        Assert.Equal("Bearer", authenticated.TokenType);
+        Assert.False(string.IsNullOrWhiteSpace(authenticated.AccessToken));
         Assert.Contains(Permission.ManagePermissions, authenticated.Permissions);
         Assert.Equal(Enum.GetValues<Permission>().Order().ToArray(), authenticated.Permissions.Order().ToArray());
+    }
+
+    [Fact]
+    public void AuthenticateReturnsValidJwtForAuthenticatedUser()
+    {
+        var tokenService = CreateTokenService();
+        var service = CreateService(tokenService);
+
+        var authenticated = service.Authenticate(new LoginRequest("admin@company.local", "admin123"));
+
+        Assert.NotNull(authenticated);
+
+        var validation = tokenService.Validate(authenticated.AccessToken);
+
+        Assert.True(validation.IsValid);
+        Assert.Equal(authenticated.UserId, validation.UserId);
     }
 
     [Fact]
@@ -27,6 +47,19 @@ public sealed class IdentityServiceTests
         var authenticated = service.Authenticate(new LoginRequest("admin@company.local", "wrong-password"));
 
         Assert.Null(authenticated);
+    }
+
+    [Fact]
+    public void StoreKeepsPasswordHashInsteadOfPlainTextPassword()
+    {
+        var passwordHasher = new PasswordHasher();
+        var store = new IdentityStore(passwordHasher);
+
+        var user = store.FindUserByEmail("admin@company.local");
+
+        Assert.NotNull(user);
+        Assert.NotEqual("admin123", user.PasswordHash);
+        Assert.True(passwordHasher.Verify("admin123", user.PasswordHash));
     }
 
     [Fact]
@@ -98,6 +131,18 @@ public sealed class IdentityServiceTests
 
     private static IdentityService CreateService()
     {
-        return new IdentityService(new IdentityStore());
+        return CreateService(CreateTokenService());
+    }
+
+    private static IdentityService CreateService(JwtTokenService tokenService)
+    {
+        var passwordHasher = new PasswordHasher();
+
+        return new IdentityService(new IdentityStore(passwordHasher), passwordHasher, tokenService);
+    }
+
+    private static JwtTokenService CreateTokenService()
+    {
+        return new JwtTokenService(Options.Create(new JwtTokenOptions()));
     }
 }

@@ -1,5 +1,6 @@
 using IdentityPoc.Api.Contracts;
 using IdentityPoc.Api.Infrastructure;
+using IdentityPoc.Api.Infrastructure.Security;
 
 namespace IdentityPoc.Api.Endpoints;
 
@@ -59,14 +60,29 @@ public static class AdminEndpoints
     private static async ValueTask<object?> RequireAdmin(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var identityService = context.HttpContext.RequestServices.GetRequiredService<IdentityService>();
+        var tokenService = context.HttpContext.RequestServices.GetRequiredService<JwtTokenService>();
 
-        if (!context.HttpContext.Request.Headers.TryGetValue("X-Actor-User-Id", out var values) ||
-            !Guid.TryParse(values.FirstOrDefault(), out var actorUserId))
+        if (!context.HttpContext.Request.Headers.TryGetValue("Authorization", out var values))
         {
             return Results.Unauthorized();
         }
 
-        return identityService.IsAdmin(actorUserId)
+        var authorization = values.FirstOrDefault();
+
+        if (authorization is null ||
+            !authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Unauthorized();
+        }
+
+        var validation = tokenService.Validate(authorization["Bearer ".Length..].Trim());
+
+        if (!validation.IsValid || validation.UserId is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        return identityService.IsAdmin(validation.UserId.Value)
             ? await next(context)
             : Results.StatusCode(StatusCodes.Status403Forbidden);
     }

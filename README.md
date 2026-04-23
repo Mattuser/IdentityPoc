@@ -4,6 +4,8 @@ Backend API proof of concept for authentication and authorization flows.
 
 For architecture, domain rules, module responsibilities, and agent guidance, read [AGENTS.md](AGENTS.md).
 
+Passwords are stored as PBKDF2 hashes. Successful login returns a Bearer JWT access token.
+
 ## Requirements
 
 - .NET SDK 10
@@ -28,7 +30,7 @@ dotnet run --project src\IdentityPoc.Api --urls http://localhost:5055
 - `POST /api/admin/groups/{groupId}/permissions`
 - `POST /api/admin/users/{userId}/permissions`
 
-Admin endpoints require the `X-Actor-User-Id` header with an admin user id.
+Admin endpoints require `Authorization: Bearer <accessToken>` for a user whose effective permissions include `ManagePermissions`.
 
 ## Seed Users
 
