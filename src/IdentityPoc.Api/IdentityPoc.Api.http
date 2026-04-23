@@ -1,0 +1,24 @@
+@IdentityPoc.Api_HostAddress = http://localhost:5055
+
+GET {{IdentityPoc.Api_HostAddress}}/health
+Accept: application/json
+
+###
+
+POST {{IdentityPoc.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@company.local",
+  "password": "admin123"
+}
+
+###
+
+POST {{IdentityPoc.Api_HostAddress}}/api/authorization/check
+Content-Type: application/json
+
+{
+  "userId": "00000000-0000-0000-0000-000000000000",
+  "permission": "Read"
+}

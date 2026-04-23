@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/IdentityPoc.Api/IdentityPoc.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IdentityPoc.Api.Tests/IdentityPoc.Api.Tests.csproj" />
+  </Folder>
+</Solution>
