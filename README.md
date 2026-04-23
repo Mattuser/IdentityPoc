@@ -4,7 +4,7 @@ Backend API proof of concept for authentication and authorization flows.
 
 For architecture, domain rules, module responsibilities, and agent guidance, read [AGENTS.md](AGENTS.md).
 
-Passwords are stored as PBKDF2 hashes. Successful login returns a Bearer JWT access token.
+Passwords are stored as BCrypt hashes by default. Successful login returns a Bearer JWT access token.
 
 ## Requirements
 

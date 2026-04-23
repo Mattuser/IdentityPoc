@@ -59,6 +59,7 @@ public sealed class IdentityServiceTests
 
         Assert.NotNull(user);
         Assert.NotEqual("admin123", user.PasswordHash);
+        Assert.StartsWith("$2", user.PasswordHash);
         Assert.True(passwordHasher.Verify("admin123", user.PasswordHash));
     }
 

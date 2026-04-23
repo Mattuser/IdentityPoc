@@ -12,7 +12,7 @@ Other company systems should use this API to:
 - Check whether authenticated users are authorized for an action.
 - Let administrators manage users, groups, and permissions.
 
-The project is intentionally simple right now. It uses an in-memory store because it is a proof of concept. Passwords are hashed with PBKDF2 and authentication issues HMAC-SHA256 JWT access tokens, but operational production concerns such as secret rotation and durable storage are still out of scope.
+The project is intentionally simple right now. It uses an in-memory store because it is a proof of concept. Passwords are hashed with BCrypt by default, PBKDF2 verification remains supported for compatibility, and authentication issues HMAC-SHA256 JWT access tokens. Operational production concerns such as secret rotation and durable storage are still out of scope.
 
 ## Current Architecture
 
@@ -232,7 +232,9 @@ Rules:
 
 - Requests provide email and plain text password.
 - Plain text passwords are only accepted at the API boundary for credential verification.
-- Stored passwords must be PBKDF2 hashes produced by `PasswordHasher`.
+- New stored passwords must be BCrypt hashes produced by `PasswordHasher.Hash`.
+- `PasswordHasher` also keeps PBKDF2 hashing/verification support for compatibility with hashes that start with `pbkdf2-sha256`.
+- BCrypt hashes are identified by the standard `$2...` prefix.
 - Successful login returns an access token, token type, expiration time, user identity, role, and effective permissions.
 - The current token type is `Bearer`.
 - The access token is a JWT signed with HMAC-SHA256.
